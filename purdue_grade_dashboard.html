@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Purdue Grade Distribution Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2230;
+    --border: #2a3444;
+    --text: #e8dcc8;
+    --text-muted: #7a8a9a;
+    --accent: #c9a84c;
+    --accent2: #4c9ac9;
+    --green: #4caf72;
+    --red: #c95050;
+    --A: #4caf72;
+    --B: #4c9ac9;
+    --C: #c9a84c;
+    --D: #c97a4c;
+    --F: #c95050;
+    --W: #7a5fc9;
+    --O: #7a8a9a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    height: 100vh;
+    display: grid;
+    grid-template-rows: 56px 1fr;
+    grid-template-columns: 300px 1fr;
+    grid-template-areas: "header header" "sidebar main";
+    overflow: hidden;
+  }
+  header {
+    grid-area: header;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    gap: 16px;
+  }
+  header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+  }
+  header .subtitle {
+    color: var(--text-muted);
+    font-size: 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    margin-top: 2px;
+  }
+  header .stats-pill {
+    margin-left: auto;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  header .stats-pill span { color: var(--accent); }
+  aside {
+    grid-area: sidebar;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .filter-group label {
+    display: block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+  .filter-group select, .filter-group input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 10px;
+    border-radius: 4px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .filter-group select:focus, .filter-group input:focus {
+    border-color: var(--accent);
+  }
+  .filter-group select option { background: var(--surface2); }
+  .semester-add-row {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+  }
+  .semester-add-row select { flex: 1; min-width: 0; }
+  .semester-add-row .btn-sem-all {
+    flex-shrink: 0;
+    width: auto;
+    min-width: 72px;
+    padding: 8px 12px;
+  }
+  
+  .course-search-wrap { position: relative; }
+  #course-results {
+    position: absolute;
+    top: 100%;
+    left: 0; right: 0;
+    background: var(--surface2);
+    border: 1px solid var(--accent);
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    max-height: 220px;
+    overflow-y: auto;
+    z-index: 100;
+    display: none;
+  }
+  .course-result-item {
+    padding: 8px 10px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+  .course-result-item:last-child { border-bottom: none; }
+  .course-result-item:hover { background: var(--border); }
+  .course-result-item .code {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+  }
+  .course-result-item .name { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  
+  .selected-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--accent);
+    border-radius: 3px;
+    padding: 3px 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    margin: 4px 4px 0 0;
+  }
+  .selected-tag button {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    padding: 0;
+  }
+  .selected-tag button:hover { color: var(--red); }
+  
+  .btn {
+    width: 100%;
+    padding: 9px;
+    border: 1px solid var(--accent);
+    background: transparent;
+    color: var(--accent);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn:hover { background: var(--accent); color: var(--bg); }
+  .btn.active { background: var(--accent); color: var(--bg); }
+  
+  main {
+    grid-area: main;
+    padding: 20px 24px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+  }
+  .stat-card .stat-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+  .stat-card .stat-value {
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .stat-card .stat-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+  
+  .charts-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+  }
+  .chart-card h3 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .chart-card h3 em {
+    font-style: normal;
+    color: var(--accent);
+    font-size: 10px;
+  }
+  .chart-wrap { position: relative; height: 260px; }
+
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .table-scroll {
+    max-height: min(50vh, 420px);
+    overflow-y: auto;
+    overflow-x: auto;
+  }
+  .table-scroll thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    box-shadow: 0 1px 0 var(--border);
+  }
+  .table-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .table-header em { font-style: normal; color: var(--accent); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  thead th {
+    background: var(--surface2);
+    padding: 8px 12px;
+    text-align: left;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+  }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+  tbody tr:hover { background: var(--surface2); }
+  tbody tr:last-child { border-bottom: none; }
+  tbody td { padding: 8px 12px; }
+  tbody td.mono { font-family: 'IBM Plex Mono', monospace; font-size: 11px; }
+  tr.course-group-row td.course-group-label {
+    background: var(--surface2);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 10px 12px 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  
+  .grade-bar {
+    display: flex;
+    height: 8px;
+    border-radius: 2px;
+    overflow: hidden;
+    width: 120px;
+    gap: 1px;
+  }
+  .grade-seg { height: 100%; transition: width 0.3s; }
+  
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+  }
+  .empty-state .icon { font-size: 32px; margin-bottom: 12px; }
+  .empty-state p { font-size: 13px; line-height: 1.6; }
+  
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+  
+  .divider { height: 1px; background: var(--border); }
+  
+  .mode-row { display: flex; gap: 8px; }
+  .mode-btn {
+    flex: 1;
+    padding: 7px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+  }
+  .mode-btn.active {
+    border-color: var(--accent2);
+    color: var(--accent2);
+    background: rgba(76,154,201,0.1);
+  }
+  
+  .trend-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px;
+  }
+  .trend-card h3 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Purdue Grade Distribution</h1>
+    <div class="subtitle">West Lafayette Campus · 2016–2025</div>
+  </div>
+  <div class="stats-pill" id="header-stats">
+    Loading... 
+  </div>
+</header>
+
+<aside>
+  <div class="filter-group">
+    <label>Subject / Department</label>
+    <select id="subject-select">
+      <option value="">— All Subjects —</option>
+    </select>
+  </div>
+  
+  <div class="filter-group">
+    <label>Course Search</label>
+    <div class="course-search-wrap">
+      <input type="text" id="course-input" placeholder="Search by name or number..." autocomplete="off">
+      <div id="course-results"></div>
+    </div>
+    <div id="selected-courses" style="margin-top:8px"></div>
+  </div>
+  
+  <div class="divider"></div>
+  
+  <div class="filter-group">
+    <label>Semester</label>
+    <div class="semester-add-row">
+      <select id="semester-add">
+        <option value="">Add semester…</option>
+      </select>
+      <button type="button" class="btn btn-sem-all" id="semester-all-btn" onclick="setSemesterAll()">All</button>
+    </div>
+    <div id="selected-semesters" style="margin-top:8px"></div>
+  </div>
+
+  <div class="filter-group">
+    <label>View Mode</label>
+    <div class="mode-row">
+      <button class="mode-btn active" id="mode-overview" onclick="setMode('overview')">Overview</button>
+      <button class="mode-btn" id="mode-trend" onclick="setMode('trend')">Trend</button>
+      <button class="mode-btn" id="mode-compare" onclick="setMode('compare')">Compare</button>
+    </div>
+  </div>
+  
+  <button class="btn" onclick="clearFilters()">Reset Filters</button>
+</aside>
+
+<main id="main-content">
+  <div class="empty-state">
+    <div class="icon">📊</div>
+    <p>Loading grade data…</p>
+  </div>
+</main>
+
+<script>
+// ──────────────────────────────────────────────────────────────────
+// DATA (injected below)
+// ──────────────────────────────────────────────────────────────────
+// Data: grades_data.json (run: python build_dashboard_data.py)
+let RAW = null;
+let SUBJECTS = [];
+let SEMESTERS = [];
+let COURSE_TITLES = {};
+let RECORDS = [];
+let DATA = [];
+
+function applyRawData(raw) {
+  RAW = raw;
+  SUBJECTS = raw.subjects;
+  SEMESTERS = raw.semesters;
+  COURSE_TITLES = raw.courseTitles || {};
+  RECORDS = raw.records;
+  DATA = RECORDS.map(r => ({
+    subj: SUBJECTS[r[0]],
+    course: r[1],
+    sem: SEMESTERS[r[2]],
+    semIdx: r[2],
+    grades: r[3],
+    title: COURSE_TITLES[SUBJECTS[r[0]] + '|' + r[1]] || '',
+    instructor: r[4] != null && r[4] !== '' ? String(r[4]) : null
+  }));
+}
+
+const GRADE_ORDER = ['A+','A','A-','B+','B','B-','C+','C','C-','D+','D','D-','F','W','O'];
+const GRADE_COLORS = {
+  'A+':'#3adf7a','A':'#4caf72','A-':'#5ec98a',
+  'B+':'#4cbbd9','B':'#4c9ac9','B-':'#4c7ab9',
+  'C+':'#d9c44c','C':'#c9a84c','C-':'#b98c3c',
+  'D+':'#d97a4c','D':'#c96a3c','D-':'#b95a2c',
+  'F':'#c95050','W':'#7a5fc9','O':'#555f6a'
+};
+const BUCKET_COLORS = {'A':'#4caf72','B':'#4c9ac9','C':'#c9a84c','D':'#c97a4c','F':'#c95050','W':'#7a5fc9','O':'#555f6a'};
+
+// State
+let selectedCourses = new Set(); // "SUBJ|courseNum" strings
+let selectedSemesters = new Set();
+let semesterAllMode = true; // when true, no semester filter (same as all semesters)
+let currentMode = 'overview';
+let charts = {};
+
+// ──────────────────────────────────────────────────────────────────
+// INIT
+// ──────────────────────────────────────────────────────────────────
+function init() {
+  // Populate subjects
+  const subjectSel = document.getElementById('subject-select');
+  SUBJECTS.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s; opt.textContent = s;
+    subjectSel.appendChild(opt);
+  });
+  
+  // Populate semester dropdown
+  const semAdd = document.getElementById('semester-add');
+  SEMESTERS.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s; opt.textContent = s;
+    semAdd.appendChild(opt);
+  });
+  
+  // Header stats
+  const uniqueCourses = new Set(DATA.map(d => d.subj+'|'+d.course)).size;
+  document.getElementById('header-stats').innerHTML = 
+    `<span>${DATA.length.toLocaleString()}</span> records · <span>${uniqueCourses.toLocaleString()}</span> courses · <span>${SEMESTERS.length}</span> semesters`;
+  
+  // Events
+  document.getElementById('subject-select').addEventListener('change', updateCourseDropdown);
+  document.getElementById('semester-add').addEventListener('change', onSemesterAddPick);
+  document.getElementById('course-input').addEventListener('input', onCourseSearch);
+  document.getElementById('course-input').addEventListener('blur', () => {
+    setTimeout(() => document.getElementById('course-results').style.display = 'none', 200);
+  });
+  document.getElementById('course-input').addEventListener('focus', onCourseSearch);
+  
+  renderSelectedSemesters();
+  render();
+}
+
+function updateCourseDropdown() {
+  selectedCourses.clear();
+  renderSelectedCourses();
+  render();
+}
+
+// ──────────────────────────────────────────────────────────────────
+// FILTERING
+// ──────────────────────────────────────────────────────────────────
+function getFilters() {
+  const subj = document.getElementById('subject-select').value;
+  const sems = semesterAllMode ? [] : [...selectedSemesters];
+  return { subj, sems, courses: [...selectedCourses] };
+}
+
+function filterData(filters) {
+  return DATA.filter(d => {
+    if (filters.subj && d.subj !== filters.subj) return false;
+    if (filters.sems.length > 0 && !filters.sems.includes(d.sem)) return false;
+    if (filters.courses.length && !filters.courses.includes(d.subj+'|'+d.course)) return false;
+    return true;
+  });
+}
+
+// ──────────────────────────────────────────────────────────────────
+// COURSE SEARCH
+// ──────────────────────────────────────────────────────────────────
+function onCourseSearch() {
+  const q = document.getElementById('course-input').value.toLowerCase().trim();
+  const subj = document.getElementById('subject-select').value;
+  const resultsEl = document.getElementById('course-results');
+  
+  if (!q && !subj) { resultsEl.style.display = 'none'; return; }
+  
+  // Build unique courses
+  const seen = new Set();
+  const matches = [];
+  for (const d of DATA) {
+    const key = d.subj+'|'+d.course;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (subj && d.subj !== subj) continue;
+    const label = `${d.subj} ${d.course} ${d.title}`.toLowerCase();
+    if (!q || label.includes(q)) {
+      matches.push({ key, subj: d.subj, course: d.course, title: d.title });
+      if (matches.length >= 50) break;
+    }
+  }
+  
+  resultsEl.innerHTML = matches.map(m => `
+    <div class="course-result-item" onmousedown="selectCourse('${m.key}')">
+      <div class="code">${m.subj} ${m.course}</div>
+      <div class="name">${m.title}</div>
+    </div>
+  `).join('');
+  resultsEl.style.display = matches.length ? 'block' : 'none';
+}
+
+function selectCourse(key) {
+  selectedCourses.add(key);
+  // Set subject if only one unique subject
+  const subj = key.split('|')[0];
+  document.getElementById('subject-select').value = subj;
+  document.getElementById('course-input').value = '';
+  document.getElementById('course-results').style.display = 'none';
+  renderSelectedCourses();
+  render();
+}
+
+function removeCourse(key) {
+  selectedCourses.delete(key);
+  renderSelectedCourses();
+  render();
+}
+
+function renderSelectedCourses() {
+  const el = document.getElementById('selected-courses');
+  el.innerHTML = [...selectedCourses].map(key => {
+    const [subj, course] = key.split('|');
+    return `<span class="selected-tag">${subj} ${course}<button onclick="removeCourse('${key}')">×</button></span>`;
+  }).join('');
+}
+
+function onSemesterAddPick(e) {
+  const v = e.target.value;
+  if (!v) return;
+  selectedSemesters.add(v);
+  semesterAllMode = false;
+  e.target.value = '';
+  renderSelectedSemesters();
+  render();
+}
+
+function removeSemester(sem) {
+  selectedSemesters.delete(sem);
+  if (!selectedSemesters.size) semesterAllMode = true;
+  renderSelectedSemesters();
+  render();
+}
+
+function setSemesterAll() {
+  semesterAllMode = true;
+  selectedSemesters.clear();
+  renderSelectedSemesters();
+  render();
+}
+
+function renderSelectedSemesters() {
+  const el = document.getElementById('selected-semesters');
+  const allBtn = document.getElementById('semester-all-btn');
+  allBtn.classList.toggle('active', semesterAllMode);
+  if (semesterAllMode) {
+    el.innerHTML = '';
+    return;
+  }
+  el.innerHTML = [...selectedSemesters].sort((a, b) => SEMESTERS.indexOf(a) - SEMESTERS.indexOf(b)).map(sem =>
+    `<span class="selected-tag">${sem}<button type="button" onclick='removeSemester(${JSON.stringify(sem)})'>×</button></span>`
+  ).join('');
+}
+
+function clearFilters() {
+  document.getElementById('subject-select').value = '';
+  document.getElementById('course-input').value = '';
+  selectedCourses.clear();
+  renderSelectedCourses();
+  semesterAllMode = true;
+  selectedSemesters.clear();
+  renderSelectedSemesters();
+  render();
+}
+
+function setMode(mode) {
+  currentMode = mode;
+  ['overview','trend','compare'].forEach(m => {
+    document.getElementById('mode-'+m).classList.toggle('active', m === mode);
+  });
+  render();
+}
+
+// ──────────────────────────────────────────────────────────────────
+// GPA ESTIMATION
+// ──────────────────────────────────────────────────────────────────
+const GPA_MAP = {'A+':4,'A':4,'A-':3.7,'B+':3.3,'B':3,'B-':2.7,'C+':2.3,'C':2,'C-':1.7,'D+':1.3,'D':1,'D-':0.7,'F':0,'E':0};
+
+function estimateGPA(grades) {
+  let total = 0, weight = 0;
+  for (const [g, pct] of Object.entries(grades)) {
+    if (GPA_MAP[g] !== undefined) { total += GPA_MAP[g] * pct; weight += pct; }
+  }
+  return weight > 0.01 ? (total / weight).toFixed(2) : null;
+}
+
+function aggregateGrades(records) {
+  const totals = {};
+  let n = 0;
+  for (const r of records) {
+    for (const [g, v] of Object.entries(r.grades)) {
+      totals[g] = (totals[g] || 0) + v;
+    }
+    n++;
+  }
+  if (!n) return {};
+  const out = {};
+  for (const [g, v] of Object.entries(totals)) out[g] = v / n;
+  return out;
+}
+
+function getBuckets(grades) {
+  return {
+    A: (grades['A+']||0)+(grades['A']||0)+(grades['A-']||0),
+    B: (grades['B+']||0)+(grades['B']||0)+(grades['B-']||0),
+    C: (grades['C+']||0)+(grades['C']||0)+(grades['C-']||0),
+    D: (grades['D+']||0)+(grades['D']||0)+(grades['D-']||0),
+    F: (grades['F']||0),
+    W: (grades['W']||0),
+    O: (grades['O']||0)
+  };
+}
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function catalogSortKey(courseStr) {
+  const n = parseInt(String(courseStr).replace(/\D/g, ''), 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+// ──────────────────────────────────────────────────────────────────
+// RENDER
+// ──────────────────────────────────────────────────────────────────
+function destroyCharts() {
+  for (const c of Object.values(charts)) { try { c.destroy(); } catch(e){} }
+  charts = {};
+}
+
+function render() {
+  destroyCharts();
+  const filters = getFilters();
+  const filtered = filterData(filters);
+  
+  if (currentMode === 'overview') renderOverview(filtered, filters);
+  else if (currentMode === 'trend') renderTrend(filtered, filters);
+  else renderCompare(filtered, filters);
+}
+
+function renderOverview(filtered, filters) {
+  const main = document.getElementById('main-content');
+  
+  if (!filtered.length) {
+    main.innerHTML = `<div class="empty-state"><div class="icon">🔍</div><p>No data matches your filters.<br>Try broadening your search.</p></div>`;
+    return;
+  }
+  
+  const aggGrades = aggregateGrades(filtered);
+  const buckets = getBuckets(aggGrades);
+  const gpa = estimateGPA(aggGrades);
+  const pctA = ((buckets.A)*100).toFixed(1);
+  const pctF = ((buckets.F)*100).toFixed(1);
+  const pctW = ((buckets.W)*100).toFixed(1);
+  
+  const uniqueCourses = new Set(filtered.map(d => d.subj+'|'+d.course)).size;
+  const uniqueSems = new Set(filtered.map(d => d.sem)).size;
+  
+  let sectionBlock = '';
+  if (filters.courses.length === 1) {
+    const sorted = [...filtered].sort((a, b) => {
+      if (a.semIdx !== b.semIdx) return a.semIdx - b.semIdx;
+      return (a.instructor || '').localeCompare(b.instructor || '');
+    });
+    const hasAnyInstructor = sorted.some(d => d.instructor);
+    const sectionRows = sorted.map(d => {
+      const bk = getBuckets(d.grades);
+      const g = estimateGPA(d.grades);
+      const pA = (bk.A*100).toFixed(1);
+      const pF = (bk.F*100).toFixed(1);
+      const barSegs = ['A','B','C','D','F','W'].map(k => {
+        const pct = (bk[k]*100).toFixed(1);
+        return pct > 0.5 ? `<div class="grade-seg" style="width:${pct}%;background:${BUCKET_COLORS[k]}"></div>` : '';
+      }).join('');
+      const instCell = d.instructor ? escapeHtml(d.instructor) : '—';
+      return `<tr>
+        <td class="mono">${escapeHtml(d.sem)}</td>
+        <td style="max-width:240px">${instCell}</td>
+        <td class="mono" style="color:var(--accent)">${g || '—'}</td>
+        <td class="mono" style="color:var(--green)">${pA}%</td>
+        <td class="mono" style="color:var(--red)">${pF}%</td>
+        <td><div class="grade-bar">${barSegs}</div></td>
+      </tr>`;
+    }).join('');
+    sectionBlock = `
+    <div class="table-wrap">
+      <div class="table-header">Sections by semester${hasAnyInstructor ? ' & instructor' : ''} <em>${sorted.length} sections</em></div>
+      <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Semester</th>
+            <th>Instructor</th>
+            <th>Est. GPA</th>
+            <th>% A</th>
+            <th>% F</th>
+            <th>Distribution</th>
+          </tr>
+        </thead>
+        <tbody>${sectionRows}</tbody>
+      </table>
+      </div>
+    </div>`;
+  }
+  
+  main.innerHTML = `
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Est. Avg GPA</div>
+        <div class="stat-value" style="color:var(--accent)">${gpa || '—'}</div>
+        <div class="stat-sub">across ${filtered.length} sections</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">% A Grades</div>
+        <div class="stat-value" style="color:var(--green)">${pctA}%</div>
+        <div class="stat-sub">A+, A, A− combined</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">% Failing / W</div>
+        <div class="stat-value" style="color:var(--red)">${pctF}% / ${pctW}%</div>
+        <div class="stat-sub">fail rate · withdrawal rate</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Coverage</div>
+        <div class="stat-value" style="color:var(--accent2)">${uniqueCourses}</div>
+        <div class="stat-sub">courses · ${uniqueSems} semesters</div>
+      </div>
+    </div>
+    <div class="charts-row">
+      <div class="chart-card">
+        <h3>Aggregate Grade Distribution <em>${filtered.length} sections</em></h3>
+        <div class="chart-wrap"><canvas id="dist-chart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Letter Grade Buckets</h3>
+        <div class="chart-wrap"><canvas id="bucket-chart"></canvas></div>
+      </div>
+    </div>
+    ${sectionBlock}
+    <div class="table-wrap">
+      <div class="table-header">Courses <em>${uniqueCourses} courses · subject → catalog #</em></div>
+      <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Course</th>
+            <th>Title</th>
+            <th>Sections</th>
+            <th>Est. GPA</th>
+            <th>% A</th>
+            <th>% F</th>
+            <th>Distribution</th>
+          </tr>
+        </thead>
+        <tbody id="course-table-body"></tbody>
+      </table>
+      </div>
+    </div>
+  `;
+  
+  // Dist chart
+  const distLabels = GRADE_ORDER.filter(g => aggGrades[g] > 0.001);
+  const distData = distLabels.map(g => +(aggGrades[g]*100).toFixed(2));
+  const distColors = distLabels.map(g => GRADE_COLORS[g] || '#555');
+  
+  charts.dist = new Chart(document.getElementById('dist-chart'), {
+    type: 'bar',
+    data: { labels: distLabels, datasets: [{ data: distData, backgroundColor: distColors, borderRadius: 3 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.raw.toFixed(1)}%` } } },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', font: { family: 'IBM Plex Mono', size: 11 } } },
+        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', callback: v => v+'%', font: { size: 10 } } }
+      }
+    }
+  });
+  
+  // Bucket doughnut
+  const bKeys = ['A','B','C','D','F','W','O'].filter(k => buckets[k] > 0.001);
+  const bData = bKeys.map(k => +(buckets[k]*100).toFixed(2));
+  const bColors = bKeys.map(k => BUCKET_COLORS[k]);
+  charts.bucket = new Chart(document.getElementById('bucket-chart'), {
+    type: 'doughnut',
+    data: { labels: bKeys, datasets: [{ data: bData, backgroundColor: bColors, borderWidth: 2, borderColor: '#161b22' }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'right', labels: { color: '#e8dcc8', font: { family: 'IBM Plex Mono', size: 11 }, padding: 12, boxWidth: 12 } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw.toFixed(1)}%` } } }
+    }
+  });
+  
+  // Course table
+  const courseGroups = {};
+  for (const d of filtered) {
+    const key = d.subj+'|'+d.course;
+    if (!courseGroups[key]) courseGroups[key] = { subj: d.subj, course: d.course, title: d.title, records: [] };
+    courseGroups[key].records.push(d);
+  }
+  const courseList = Object.values(courseGroups).sort((a, b) => {
+    const subCmp = a.subj.localeCompare(b.subj);
+    if (subCmp !== 0) return subCmp;
+    return catalogSortKey(a.course) - catalogSortKey(b.course);
+  });
+  const showSubjGroups = !filters.subj;
+  let lastSubj = null;
+  const tbody = document.getElementById('course-table-body');
+  const parts = [];
+  for (const c of courseList) {
+    if (showSubjGroups && c.subj !== lastSubj) {
+      lastSubj = c.subj;
+      parts.push(`<tr class="course-group-row"><td colspan="7" class="course-group-label">${escapeHtml(c.subj)}</td></tr>`);
+    }
+    const ag = aggregateGrades(c.records);
+    const bk = getBuckets(ag);
+    const g = estimateGPA(ag);
+    const pA = (bk.A*100).toFixed(1);
+    const pF = (bk.F*100).toFixed(1);
+    const barSegs = ['A','B','C','D','F','W'].map(k => {
+      const pct = (bk[k]*100).toFixed(1);
+      return pct > 0.5 ? `<div class="grade-seg" style="width:${pct}%;background:${BUCKET_COLORS[k]}"></div>` : '';
+    }).join('');
+    parts.push(`<tr>
+      <td class="mono">${c.subj} ${c.course}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(c.title)}">${escapeHtml(c.title)}</td>
+      <td class="mono">${c.records.length}</td>
+      <td class="mono" style="color:var(--accent)">${g || '—'}</td>
+      <td class="mono" style="color:var(--green)">${pA}%</td>
+      <td class="mono" style="color:var(--red)">${pF}%</td>
+      <td><div class="grade-bar">${barSegs}</div></td>
+    </tr>`);
+  }
+  tbody.innerHTML = parts.join('');
+}
+
+function renderTrend(filtered, filters) {
+  const main = document.getElementById('main-content');
+  
+  if (!filtered.length) {
+    main.innerHTML = `<div class="empty-state"><div class="icon">📈</div><p>No data — select a course or subject to see trends.</p></div>`;
+    return;
+  }
+  
+  // Group by semester
+  const bySem = {};
+  for (const s of SEMESTERS) bySem[s] = [];
+  for (const d of filtered) {
+    if (bySem[d.sem]) bySem[d.sem].push(d);
+  }
+  
+  const semLabels = SEMESTERS.filter(s => bySem[s].length);
+  const gpaLine = semLabels.map(s => {
+    const ag = aggregateGrades(bySem[s]);
+    return estimateGPA(ag) ? parseFloat(estimateGPA(ag)) : null;
+  });
+  const pctALine = semLabels.map(s => {
+    const ag = aggregateGrades(bySem[s]);
+    const bk = getBuckets(ag);
+    return parseFloat((bk.A*100).toFixed(2));
+  });
+  const pctFLine = semLabels.map(s => {
+    const ag = aggregateGrades(bySem[s]);
+    const bk = getBuckets(ag);
+    return parseFloat((bk.F*100).toFixed(2));
+  });
+  
+  const shortLabels = semLabels.map(s => {
+    const [term, yr] = s.split(' ');
+    return term.slice(0,2) + "'" + yr.slice(2);
+  });
+  
+  main.innerHTML = `
+    <div class="trend-card">
+      <h3>GPA Trend Over Time</h3>
+      <div style="height:220px;position:relative"><canvas id="gpa-trend"></canvas></div>
+    </div>
+    <div class="charts-row" style="min-height:220px">
+      <div class="chart-card">
+        <h3>% A Grades by Semester</h3>
+        <div class="chart-wrap" style="height:200px"><canvas id="a-trend"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>% Failing by Semester</h3>
+        <div class="chart-wrap" style="height:200px"><canvas id="f-trend"></canvas></div>
+      </div>
+    </div>
+    <div class="trend-card">
+      <h3>Grade Distribution Heatmap by Semester</h3>
+      <div style="height:260px;position:relative"><canvas id="heat-chart"></canvas></div>
+    </div>
+  `;
+  
+  const commonOptions = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false }, tooltip: {} },
+    scales: {
+      x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', font: { family: 'IBM Plex Mono', size: 10 }, maxRotation: 45 } },
+      y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', font: { size: 10 } } }
+    }
+  };
+  
+  charts.gpaTrend = new Chart(document.getElementById('gpa-trend'), {
+    type: 'line',
+    data: { labels: shortLabels, datasets: [{
+      data: gpaLine, borderColor: '#c9a84c', backgroundColor: 'rgba(201,168,76,0.1)',
+      tension: 0.3, fill: true, pointRadius: 4, pointBackgroundColor: '#c9a84c'
+    }]},
+    options: { ...commonOptions, scales: { ...commonOptions.scales, y: { ...commonOptions.scales.y, min: 0, max: 4, ticks: { ...commonOptions.scales.y.ticks, callback: v => v.toFixed(1) } } } }
+  });
+  
+  charts.aTrend = new Chart(document.getElementById('a-trend'), {
+    type: 'line',
+    data: { labels: shortLabels, datasets: [{
+      data: pctALine, borderColor: '#4caf72', backgroundColor: 'rgba(76,175,114,0.1)',
+      tension: 0.3, fill: true, pointRadius: 3, pointBackgroundColor: '#4caf72'
+    }]},
+    options: { ...commonOptions, plugins: { ...commonOptions.plugins, tooltip: { callbacks: { label: ctx => ` ${ctx.raw.toFixed(1)}%` } } },
+      scales: { ...commonOptions.scales, y: { ...commonOptions.scales.y, ticks: { ...commonOptions.scales.y.ticks, callback: v => v+'%' } } } }
+  });
+  
+  charts.fTrend = new Chart(document.getElementById('f-trend'), {
+    type: 'line',
+    data: { labels: shortLabels, datasets: [{
+      data: pctFLine, borderColor: '#c95050', backgroundColor: 'rgba(201,80,80,0.1)',
+      tension: 0.3, fill: true, pointRadius: 3, pointBackgroundColor: '#c95050'
+    }]},
+    options: { ...commonOptions, plugins: { ...commonOptions.plugins, tooltip: { callbacks: { label: ctx => ` ${ctx.raw.toFixed(1)}%` } } },
+      scales: { ...commonOptions.scales, y: { ...commonOptions.scales.y, ticks: { ...commonOptions.scales.y.ticks, callback: v => v+'%' } } } }
+  });
+  
+  // Stacked area chart for grade distribution
+  const gradeKeys = ['A','B','C','D','F','W'];
+  const stackedDatasets = gradeKeys.map(k => ({
+    label: k,
+    data: semLabels.map(s => {
+      const ag = aggregateGrades(bySem[s]);
+      const bk = getBuckets(ag);
+      return parseFloat((bk[k]*100).toFixed(2));
+    }),
+    backgroundColor: BUCKET_COLORS[k]+'bb',
+    borderColor: BUCKET_COLORS[k],
+    borderWidth: 1,
+    fill: true,
+    tension: 0.3
+  }));
+  
+  charts.heat = new Chart(document.getElementById('heat-chart'), {
+    type: 'bar',
+    data: { labels: shortLabels, datasets: stackedDatasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'top', labels: { color: '#e8dcc8', font: { family: 'IBM Plex Mono', size: 11 }, boxWidth: 12, padding: 10 } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.raw.toFixed(1)}%` } } },
+      scales: {
+        x: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', font: { family: 'IBM Plex Mono', size: 10 }, maxRotation: 45 } },
+        y: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', callback: v => v+'%', font: { size: 10 } }, max: 100 }
+      }
+    }
+  });
+}
+
+function renderCompare(filtered, filters) {
+  const main = document.getElementById('main-content');
+  
+  // Group by course
+  const courseGroups = {};
+  for (const d of filtered) {
+    const key = d.subj+'|'+d.course;
+    if (!courseGroups[key]) courseGroups[key] = { subj: d.subj, course: d.course, title: d.title, records: [] };
+    courseGroups[key].records.push(d);
+  }
+  
+  const courses = Object.values(courseGroups).sort((a,b) => b.records.length - a.records.length).slice(0, 10);
+  
+  if (!courses.length) {
+    main.innerHTML = `<div class="empty-state"><div class="icon">⚖️</div><p>Select courses or a subject to compare grade distributions.</p></div>`;
+    return;
+  }
+  
+  main.innerHTML = `
+    <div class="chart-card" style="min-height:320px">
+      <h3>Grade Distribution Comparison (avg % by course) <em>top ${courses.length} courses</em></h3>
+      <div style="height:300px;position:relative"><canvas id="compare-chart"></canvas></div>
+    </div>
+    <div class="chart-card" style="min-height:260px">
+      <h3>Estimated GPA Comparison</h3>
+      <div style="height:240px;position:relative"><canvas id="gpa-compare"></canvas></div>
+    </div>
+  `;
+  
+  const gradeKeys = ['A+','A','A-','B+','B','B-','C+','C','C-','D+','D','D-','F','W'];
+  const gradeKeysFull = gradeKeys.filter(k => courses.some(c => {
+    const ag = aggregateGrades(c.records);
+    return (ag[k]||0) > 0.01;
+  }));
+  
+  const courseLabels = courses.map(c => `${c.subj} ${c.course}`);
+  
+  const datasets = gradeKeysFull.map(g => ({
+    label: g,
+    data: courses.map(c => {
+      const ag = aggregateGrades(c.records);
+      return parseFloat(((ag[g]||0)*100).toFixed(2));
+    }),
+    backgroundColor: GRADE_COLORS[g] || '#555',
+    borderWidth: 0,
+    borderRadius: 2
+  }));
+  
+  charts.compare = new Chart(document.getElementById('compare-chart'), {
+    type: 'bar',
+    data: { labels: courseLabels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+      plugins: { legend: { position: 'top', labels: { color: '#e8dcc8', font: { family: 'IBM Plex Mono', size: 10 }, boxWidth: 10, padding: 8 } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.raw.toFixed(1)}%` } } },
+      scales: {
+        x: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', callback: v => v+'%', font: { size: 10 } }, max: 100 },
+        y: { stacked: true, grid: { display: false }, ticks: { color: '#e8dcc8', font: { family: 'IBM Plex Mono', size: 11 } } }
+      }
+    }
+  });
+  
+  const gpas = courses.map(c => {
+    const ag = aggregateGrades(c.records);
+    return parseFloat(estimateGPA(ag) || 0);
+  });
+  const gpaColors = gpas.map(g => g >= 3.5 ? '#4caf72' : g >= 2.5 ? '#c9a84c' : g >= 1.5 ? '#c97a4c' : '#c95050');
+  
+  charts.gpaCompare = new Chart(document.getElementById('gpa-compare'), {
+    type: 'bar',
+    data: { labels: courseLabels, datasets: [{ label: 'GPA', data: gpas, backgroundColor: gpaColors, borderRadius: 4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` Est. GPA: ${ctx.raw.toFixed(2)}` } } },
+      scales: {
+        x: { min: 0, max: 4, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', font: { size: 10 }, callback: v => v.toFixed(1) } },
+        y: { grid: { display: false }, ticks: { color: '#e8dcc8', font: { family: 'IBM Plex Mono', size: 11 } } }
+      }
+    }
+  });
+}
+
+// ──────────────────────────────────────────────────────────────────
+// START — load JSON (fetch when served over http; file picker for file://)
+// ──────────────────────────────────────────────────────────────────
+async function loadGradeData() {
+  const main = document.getElementById('main-content');
+  const headerStats = document.getElementById('header-stats');
+  async function fetchJson(url) {
+    const r = await fetch(url, { cache: 'no-store' });
+    if (!r.ok) throw new Error(String(r.status));
+    return r.json();
+  }
+  try {
+    const raw = await fetchJson('grades_data.json');
+    applyRawData(raw);
+    init();
+    return;
+  } catch (e1) {
+    try {
+      const raw = await fetchJson('./grades_data.json');
+      applyRawData(raw);
+      init();
+      return;
+    } catch (e2) {}
+  }
+  headerStats.textContent = 'No data loaded';
+  main.innerHTML = `
+    <div class="empty-state">
+      <div class="icon">📊</div>
+      <p>Could not load <span class="mono" style="color:var(--accent)">grades_data.json</span></p>
+      <p style="margin-top:12px;color:var(--text-muted);font-size:13px;max-width:520px;">
+        If you opened this file as <span class="mono">file://</span>, browsers block loading local JSON files.</p>
+      <p style="margin-top:10px;color:var(--text-muted);font-size:13px;">
+        Run <span class="mono">python build_dashboard_data.py</span> then either serve the folder
+        (<span class="mono">python -m http.server</span> and open the page) or use VS Code “Live Server”.</p>
+      <label class="btn" style="display:inline-block;margin-top:18px;cursor:pointer;width:auto;padding:10px 20px;">
+        Load grades_data.json
+        <input type="file" accept=".json,application/json" style="display:none" id="load-json-input">
+      </label>
+    </div>`;
+  document.getElementById('load-json-input').addEventListener('change', (ev) => {
+    const f = ev.target.files[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        applyRawData(JSON.parse(String(reader.result)));
+        init();
+      } catch (err) {
+        alert('Could not parse JSON: ' + err);
+      }
+    };
+    reader.readAsText(f);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', loadGradeData);
+</script>
+</body>
+</html>
