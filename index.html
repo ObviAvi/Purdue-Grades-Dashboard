@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Purdue Grade Distribution Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -192,15 +192,20 @@
     grid-area: main;
     padding: 20px 24px;
     overflow-y: auto;
+    overflow-x: hidden;
     display: flex;
     flex-direction: column;
     gap: 20px;
+    min-width: 0;
+    max-width: 100%;
   }
   
   .stats-row {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 12px;
+    min-width: 0;
+    max-width: 100%;
   }
   .stat-card {
     background: var(--surface);
@@ -232,6 +237,9 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 16px;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
   }
   .chart-card {
     background: var(--surface);
@@ -240,6 +248,9 @@
     padding: 16px;
     display: flex;
     flex-direction: column;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
   }
   .chart-card h3 {
     font-family: 'IBM Plex Mono', monospace;
@@ -257,7 +268,18 @@
     color: var(--accent);
     font-size: 10px;
   }
-  .chart-wrap { position: relative; height: 260px; }
+  .chart-wrap {
+    position: relative;
+    height: 260px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .chart-wrap canvas {
+    display: block;
+    max-width: 100%;
+  }
 
   .table-wrap {
     background: var(--surface);
@@ -267,11 +289,17 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
   .table-scroll {
     max-height: min(50vh, 420px);
     overflow-y: auto;
     overflow-x: auto;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
   }
   .table-scroll thead th {
     position: sticky;
@@ -384,6 +412,158 @@
     color: var(--text-muted);
     margin-bottom: 12px;
   }
+
+  .filter-toggle-mobile {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex-shrink: 0;
+    padding: 10px 14px;
+    min-height: 44px;
+    border: 1px solid var(--accent);
+    background: transparent;
+    color: var(--accent);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    border-radius: 4px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  .filter-toggle-mobile:active { background: rgba(201, 168, 76, 0.15); }
+
+  @media (max-width: 900px) {
+    html {
+      overflow-x: hidden;
+      max-width: 100%;
+    }
+    body {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto auto 1fr;
+      grid-template-areas:
+        "header"
+        "sidebar"
+        "main";
+      height: auto;
+      min-height: 100dvh;
+      min-height: 100vh;
+      overflow: auto;
+    }
+    header {
+      flex-wrap: wrap;
+      padding: 10px 16px;
+      padding-left: max(16px, env(safe-area-inset-left));
+      padding-right: max(16px, env(safe-area-inset-right));
+      padding-top: max(10px, env(safe-area-inset-top));
+      gap: 10px;
+    }
+    header h1 { font-size: 17px; line-height: 1.2; }
+    header .subtitle { font-size: 11px; }
+    header .stats-pill {
+      margin-left: 0;
+      width: 100%;
+      order: 3;
+      text-align: center;
+      padding: 8px 12px;
+      font-size: 10px;
+    }
+    .filter-toggle-mobile {
+      display: inline-flex;
+      margin-left: auto;
+      order: 2;
+    }
+    aside {
+      display: none;
+      grid-area: sidebar;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+      padding: 16px;
+      padding-bottom: max(16px, env(safe-area-inset-bottom));
+      overflow: visible;
+      gap: 16px;
+    }
+    body.filters-open aside {
+      display: flex;
+    }
+    main {
+      overflow-x: clip;
+      overflow-y: visible;
+      min-width: 0;
+      max-width: 100%;
+      padding: 14px 16px;
+      padding-bottom: max(24px, env(safe-area-inset-bottom));
+    }
+    .stats-row {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      min-width: 0;
+      max-width: 100%;
+    }
+    .stat-card { padding: 12px 14px; }
+    .stat-card .stat-value { font-size: 22px; }
+    .stat-card .stat-sub { font-size: 10px; }
+    .charts-row {
+      grid-template-columns: 1fr;
+      gap: 14px;
+      min-width: 0;
+      max-width: 100%;
+    }
+    .chart-card { padding: 12px; }
+    .chart-wrap { height: 240px; }
+    .trend-card {
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
+    }
+    .table-wrap {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+    }
+    .table-scroll {
+      max-height: min(65vh, 380px);
+      -webkit-overflow-scrolling: touch;
+      min-width: 0;
+      max-width: 100%;
+    }
+    .table-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+    }
+    table { font-size: 11px; }
+    thead th, tbody td { padding: 7px 8px; }
+    .grade-bar {
+      width: 100%;
+      max-width: 140px;
+      min-width: 72px;
+    }
+    .filter-group select,
+    .filter-group input {
+      font-size: 16px;
+      padding: 10px 12px;
+      min-height: 44px;
+    }
+    .btn, .mode-btn, .semester-add-row .btn-sem-all {
+      min-height: 44px;
+      padding: 10px 12px;
+    }
+    .mode-row { gap: 6px; }
+    #course-results { max-height: min(40vh, 280px); }
+    .table-scroll table { min-width: 520px; }
+  }
+
+  @media (max-width: 900px) and (min-width: 481px) {
+    header > div:first-child { flex: 1; min-width: 0; }
+  }
+
+  @media (max-width: 480px) {
+    .stats-row { grid-template-columns: 1fr; }
+    .chart-wrap { height: 220px; }
+    .stat-card .stat-value { font-size: 20px; }
+  }
 </style>
 </head>
 <body>
@@ -393,12 +573,13 @@
     <h1>Purdue Grade Distribution</h1>
     <div class="subtitle">West Lafayette Campus · 2016–2025</div>
   </div>
+  <button type="button" class="filter-toggle-mobile" id="filter-toggle" aria-expanded="false" aria-controls="filters-aside" hidden>Filters</button>
   <div class="stats-pill" id="header-stats">
     Loading... 
   </div>
 </header>
 
-<aside>
+<aside id="filters-aside">
   <div class="filter-group">
     <label>Subject / Department</label>
     <select id="subject-select">
@@ -493,6 +674,34 @@ let semesterAllMode = true; // when true, no semester filter (same as all semest
 let currentMode = 'overview';
 let charts = {};
 
+function isNarrowViewport() {
+  return typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 900px)').matches;
+}
+
+let mobileFiltersBound = false;
+function setupMobileFilters() {
+  if (mobileFiltersBound) return;
+  mobileFiltersBound = true;
+  const mq = window.matchMedia('(max-width: 900px)');
+  const btn = document.getElementById('filter-toggle');
+  const applyLayout = () => {
+    const narrow = mq.matches;
+    btn.hidden = !narrow;
+    if (!narrow) {
+      document.body.classList.remove('filters-open');
+      btn.setAttribute('aria-expanded', 'false');
+      btn.textContent = 'Filters';
+    }
+  };
+  applyLayout();
+  mq.addEventListener('change', applyLayout);
+  btn.addEventListener('click', () => {
+    const open = document.body.classList.toggle('filters-open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    btn.textContent = open ? 'Hide filters' : 'Filters';
+  });
+}
+
 // ──────────────────────────────────────────────────────────────────
 // INIT
 // ──────────────────────────────────────────────────────────────────
@@ -528,6 +737,7 @@ function init() {
   document.getElementById('course-input').addEventListener('focus', onCourseSearch);
   
   renderSelectedSemesters();
+  setupMobileFilters();
   render();
 }
 
@@ -863,6 +1073,7 @@ function renderOverview(filtered, filters) {
   const distData = distLabels.map(g => +(aggGrades[g]*100).toFixed(2));
   const distColors = distLabels.map(g => GRADE_COLORS[g] || '#555');
   
+  const narrow = isNarrowViewport();
   charts.dist = new Chart(document.getElementById('dist-chart'), {
     type: 'bar',
     data: { labels: distLabels, datasets: [{ data: distData, backgroundColor: distColors, borderRadius: 3 }] },
@@ -870,8 +1081,8 @@ function renderOverview(filtered, filters) {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.raw.toFixed(1)}%` } } },
       scales: {
-        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', font: { family: 'IBM Plex Mono', size: 11 } } },
-        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', callback: v => v+'%', font: { size: 10 } } }
+        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', font: { family: 'IBM Plex Mono', size: narrow ? 9 : 11 }, maxRotation: narrow ? 70 : 0, minRotation: narrow ? 45 : 0 } },
+        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', callback: v => v+'%', font: { size: narrow ? 9 : 10 } } }
       }
     }
   });
@@ -885,8 +1096,14 @@ function renderOverview(filtered, filters) {
     data: { labels: bKeys, datasets: [{ data: bData, backgroundColor: bColors, borderWidth: 2, borderColor: '#161b22' }] },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { position: 'right', labels: { color: '#e8dcc8', font: { family: 'IBM Plex Mono', size: 11 }, padding: 12, boxWidth: 12 } },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw.toFixed(1)}%` } } }
+      layout: { padding: narrow ? { bottom: 4 } : 0 },
+      plugins: {
+        legend: {
+          position: narrow ? 'bottom' : 'right',
+          labels: { color: '#e8dcc8', font: { family: 'IBM Plex Mono', size: narrow ? 9 : 11 }, padding: narrow ? 8 : 12, boxWidth: 10 }
+        },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw.toFixed(1)}%` } }
+      }
     }
   });
   
@@ -990,12 +1207,13 @@ function renderTrend(filtered, filters) {
     </div>
   `;
   
+  const trendNarrow = isNarrowViewport();
   const commonOptions = {
     responsive: true, maintainAspectRatio: false,
     plugins: { legend: { display: false }, tooltip: {} },
     scales: {
-      x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', font: { family: 'IBM Plex Mono', size: 10 }, maxRotation: 45 } },
-      y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', font: { size: 10 } } }
+      x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', font: { family: 'IBM Plex Mono', size: trendNarrow ? 8 : 10 }, maxRotation: trendNarrow ? 70 : 45, minRotation: trendNarrow ? 50 : 0 } },
+      y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', font: { size: trendNarrow ? 9 : 10 } } }
     }
   };
   
@@ -1049,11 +1267,17 @@ function renderTrend(filtered, filters) {
     data: { labels: shortLabels, datasets: stackedDatasets },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { position: 'top', labels: { color: '#e8dcc8', font: { family: 'IBM Plex Mono', size: 11 }, boxWidth: 12, padding: 10 } },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.raw.toFixed(1)}%` } } },
+      layout: { padding: { top: trendNarrow ? 4 : 0 } },
+      plugins: {
+        legend: {
+          position: trendNarrow ? 'bottom' : 'top',
+          labels: { color: '#e8dcc8', font: { family: 'IBM Plex Mono', size: trendNarrow ? 9 : 11 }, boxWidth: 10, padding: trendNarrow ? 6 : 10 }
+        },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.raw.toFixed(1)}%` } }
+      },
       scales: {
-        x: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', font: { family: 'IBM Plex Mono', size: 10 }, maxRotation: 45 } },
-        y: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', callback: v => v+'%', font: { size: 10 } }, max: 100 }
+        x: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', font: { family: 'IBM Plex Mono', size: trendNarrow ? 8 : 10 }, maxRotation: trendNarrow ? 70 : 45 } },
+        y: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', callback: v => v+'%', font: { size: trendNarrow ? 9 : 10 } }, max: 100 }
       }
     }
   });
@@ -1107,16 +1331,23 @@ function renderCompare(filtered, filters) {
     borderRadius: 2
   }));
   
+  const cmpNarrow = isNarrowViewport();
   charts.compare = new Chart(document.getElementById('compare-chart'), {
     type: 'bar',
     data: { labels: courseLabels, datasets },
     options: {
       responsive: true, maintainAspectRatio: false, indexAxis: 'y',
-      plugins: { legend: { position: 'top', labels: { color: '#e8dcc8', font: { family: 'IBM Plex Mono', size: 10 }, boxWidth: 10, padding: 8 } },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.raw.toFixed(1)}%` } } },
+      layout: { padding: { bottom: cmpNarrow ? 8 : 0 } },
+      plugins: {
+        legend: {
+          position: cmpNarrow ? 'bottom' : 'top',
+          labels: { color: '#e8dcc8', font: { family: 'IBM Plex Mono', size: cmpNarrow ? 8 : 10 }, boxWidth: 8, padding: cmpNarrow ? 4 : 8 }
+        },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.raw.toFixed(1)}%` } }
+      },
       scales: {
-        x: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', callback: v => v+'%', font: { size: 10 } }, max: 100 },
-        y: { stacked: true, grid: { display: false }, ticks: { color: '#e8dcc8', font: { family: 'IBM Plex Mono', size: 11 } } }
+        x: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', callback: v => v+'%', font: { size: cmpNarrow ? 8 : 10 } }, max: 100 },
+        y: { stacked: true, grid: { display: false }, ticks: { color: '#e8dcc8', font: { family: 'IBM Plex Mono', size: cmpNarrow ? 9 : 11 }, maxRotation: 0 } }
       }
     }
   });
@@ -1134,8 +1365,8 @@ function renderCompare(filtered, filters) {
       responsive: true, maintainAspectRatio: false, indexAxis: 'y',
       plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` Est. GPA: ${ctx.raw.toFixed(2)}` } } },
       scales: {
-        x: { min: 0, max: 4, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', font: { size: 10 }, callback: v => v.toFixed(1) } },
-        y: { grid: { display: false }, ticks: { color: '#e8dcc8', font: { family: 'IBM Plex Mono', size: 11 } } }
+        x: { min: 0, max: 4, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', font: { size: cmpNarrow ? 9 : 10 }, callback: v => v.toFixed(1) } },
+        y: { grid: { display: false }, ticks: { color: '#e8dcc8', font: { family: 'IBM Plex Mono', size: cmpNarrow ? 9 : 11 } } }
       }
     }
   });
