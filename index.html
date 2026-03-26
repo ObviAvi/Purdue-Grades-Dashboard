@@ -48,6 +48,69 @@
     --red: #b32828;
     --chart-grid: rgba(0, 0, 0, 0.08);
   }
+
+  /* Smooth theme cross-fade (UI chrome; charts refresh on next frame) */
+  body,
+  header,
+  header h1,
+  header .subtitle,
+  aside,
+  main,
+  .stat-card,
+  .chart-card,
+  .table-wrap,
+  .trend-card,
+  #theme-toggle,
+  .stats-pill,
+  .btn,
+  .mode-btn,
+  .filter-group select,
+  .filter-group input,
+  .table-header,
+  thead th,
+  tbody td,
+  tbody tr.course-group-row td,
+  .selected-tag,
+  .empty-state,
+  .filter-toggle-mobile,
+  .course-result-item,
+  .divider,
+  .sem-link {
+    transition-property: background-color, color, border-color, fill, stroke;
+    transition-duration: 0.28s;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    body,
+    header,
+    header h1,
+    header .subtitle,
+    aside,
+    main,
+    .stat-card,
+    .chart-card,
+    .table-wrap,
+    .trend-card,
+    #theme-toggle,
+    .stats-pill,
+    .btn,
+    .mode-btn,
+    .filter-group select,
+    .filter-group input,
+    .table-header,
+    thead th,
+    tbody td,
+    tbody tr.course-group-row td,
+    .selected-tag,
+    .empty-state,
+    .filter-toggle-mobile,
+    .course-result-item,
+    .divider,
+    .sem-link {
+      transition: none !important;
+    }
+  }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     background: var(--bg);
@@ -92,30 +155,35 @@
     color: var(--text-muted);
   }
   header .stats-pill span { color: var(--accent); }
-  .header-actions {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    justify-content: flex-end;
+  .header-brand {
+    flex: 1 1 auto;
+    min-width: 0;
   }
   #theme-toggle {
+    margin-left: auto;
     flex-shrink: 0;
-    padding: 6px 12px;
-    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
     border: 1px solid var(--border);
     background: var(--surface2);
     color: var(--text-muted);
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-    letter-spacing: 0.04em;
-    border-radius: 4px;
+    border-radius: 6px;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
   }
   #theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+  #theme-toggle svg {
+    display: block;
+    flex-shrink: 0;
+  }
+  #theme-toggle .theme-icon-moon { display: none; }
+  [data-theme="light"] #theme-toggle .theme-icon-sun { display: none; }
+  [data-theme="light"] #theme-toggle .theme-icon-moon { display: block; }
   aside {
     grid-area: sidebar;
     background: var(--surface);
@@ -527,25 +595,19 @@
     }
     header h1 { font-size: 17px; line-height: 1.2; }
     header .subtitle { font-size: 11px; }
-    .header-actions {
-      order: 3;
-      width: 100%;
-      margin-left: 0;
-      flex-direction: column;
-      align-items: stretch;
-      gap: 8px;
+    #theme-toggle {
+      margin-left: auto;
     }
-    .header-actions #theme-toggle { align-self: center; }
+    .filter-toggle-mobile {
+      display: inline-flex;
+      margin-left: 0;
+    }
     header .stats-pill {
+      flex-basis: 100%;
       width: 100%;
       text-align: center;
       padding: 8px 12px;
       font-size: 10px;
-    }
-    .filter-toggle-mobile {
-      display: inline-flex;
-      margin-left: auto;
-      order: 2;
     }
     aside {
       display: none;
@@ -629,7 +691,7 @@
   }
 
   @media (max-width: 900px) and (min-width: 481px) {
-    header > div:first-child { flex: 1; min-width: 0; }
+    .header-brand { flex: 1; min-width: 0; }
   }
 
   @media (max-width: 480px) {
@@ -642,16 +704,17 @@
 <body>
 
 <header>
-  <div>
+  <div class="header-brand">
     <h1>Purdue Grade Distribution</h1>
     <div class="subtitle">West Lafayette Campus · 2016–2025</div>
   </div>
+  <button type="button" id="theme-toggle" aria-pressed="false" aria-label="Switch to light theme" title="Switch to light theme">
+    <svg class="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+    <svg class="theme-icon-moon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+  </button>
   <button type="button" class="filter-toggle-mobile" id="filter-toggle" aria-expanded="false" aria-controls="filters-aside" hidden>Filters</button>
-  <div class="header-actions">
-    <button type="button" id="theme-toggle" aria-pressed="false" title="Switch theme">Light mode</button>
-    <div class="stats-pill" id="header-stats">
-      Loading... 
-    </div>
+  <div class="stats-pill" id="header-stats">
+    Loading... 
   </div>
 </header>
 
@@ -781,8 +844,9 @@ function initThemeToggle() {
   const sync = () => {
     const light = document.documentElement.getAttribute('data-theme') === 'light';
     btn.setAttribute('aria-pressed', light ? 'true' : 'false');
-    btn.textContent = light ? 'Dark mode' : 'Light mode';
-    btn.title = light ? 'Switch to dark theme' : 'Switch to light theme';
+    const label = light ? 'Switch to dark theme' : 'Switch to light theme';
+    btn.setAttribute('aria-label', label);
+    btn.title = label;
   };
   sync();
   btn.addEventListener('click', () => {
@@ -795,7 +859,13 @@ function initThemeToggle() {
       try { localStorage.setItem('purdueGradesTheme', 'light'); } catch (e) {}
     }
     sync();
-    if (RAW) render();
+    if (RAW) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (RAW) render();
+        });
+      });
+    }
   });
 }
 
