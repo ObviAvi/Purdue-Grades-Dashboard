@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Purdue Grade Distribution Dashboard</title>
+<script>
+(function () {
+  try {
+    if (localStorage.getItem('purdueGradesTheme') === 'light')
+      document.documentElement.setAttribute('data-theme', 'light');
+  } catch (e) {}
+})();
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
@@ -25,6 +33,20 @@
     --F: #c95050;
     --W: #7a5fc9;
     --O: #7a8a9a;
+    --chart-grid: rgba(255, 255, 255, 0.06);
+  }
+  [data-theme="light"] {
+    --bg: #e8e4dc;
+    --surface: #ffffff;
+    --surface2: #f0ebe3;
+    --border: #c8c2b6;
+    --text: #1a1f26;
+    --text-muted: #5a6270;
+    --accent: #8b6914;
+    --accent2: #0b5fa8;
+    --green: #0f6b3d;
+    --red: #b32828;
+    --chart-grid: rgba(0, 0, 0, 0.08);
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -61,7 +83,6 @@
     margin-top: 2px;
   }
   header .stats-pill {
-    margin-left: auto;
     background: var(--surface2);
     border: 1px solid var(--border);
     border-radius: 20px;
@@ -71,6 +92,30 @@
     color: var(--text-muted);
   }
   header .stats-pill span { color: var(--accent); }
+  .header-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  #theme-toggle {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    min-height: 36px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text-muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    border-radius: 4px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  #theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
   aside {
     grid-area: sidebar;
     background: var(--surface);
@@ -351,6 +396,24 @@
     padding: 10px 12px 6px;
     border-bottom: 1px solid var(--border);
   }
+
+  .sem-link {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: inherit;
+    color: var(--accent2);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-align: left;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .sem-link:hover { color: var(--accent); }
+  td.sem-cell { white-space: nowrap; }
   
   .grade-bar {
     display: flex;
@@ -395,7 +458,10 @@
   .mode-btn.active {
     border-color: var(--accent2);
     color: var(--accent2);
-    background: rgba(76,154,201,0.1);
+    background: rgba(76, 154, 201, 0.1);
+  }
+  [data-theme="light"] .mode-btn.active {
+    background: rgba(11, 95, 168, 0.12);
   }
   
   .trend-card {
@@ -461,10 +527,17 @@
     }
     header h1 { font-size: 17px; line-height: 1.2; }
     header .subtitle { font-size: 11px; }
-    header .stats-pill {
-      margin-left: 0;
-      width: 100%;
+    .header-actions {
       order: 3;
+      width: 100%;
+      margin-left: 0;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+    }
+    .header-actions #theme-toggle { align-self: center; }
+    header .stats-pill {
+      width: 100%;
       text-align: center;
       padding: 8px 12px;
       font-size: 10px;
@@ -552,7 +625,7 @@
     }
     .mode-row { gap: 6px; }
     #course-results { max-height: min(40vh, 280px); }
-    .table-scroll table { min-width: 520px; }
+    .table-scroll table { min-width: 600px; }
   }
 
   @media (max-width: 900px) and (min-width: 481px) {
@@ -574,8 +647,11 @@
     <div class="subtitle">West Lafayette Campus · 2016–2025</div>
   </div>
   <button type="button" class="filter-toggle-mobile" id="filter-toggle" aria-expanded="false" aria-controls="filters-aside" hidden>Filters</button>
-  <div class="stats-pill" id="header-stats">
-    Loading... 
+  <div class="header-actions">
+    <button type="button" id="theme-toggle" aria-pressed="false" title="Switch theme">Light mode</button>
+    <div class="stats-pill" id="header-stats">
+      Loading... 
+    </div>
   </div>
 </header>
 
@@ -678,6 +754,66 @@ function isNarrowViewport() {
   return typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 900px)').matches;
 }
 
+function getChartTheme() {
+  const cs = getComputedStyle(document.documentElement);
+  const text = (cs.getPropertyValue('--text') || '#e8dcc8').trim();
+  const muted = (cs.getPropertyValue('--text-muted') || '#7a8a9a').trim();
+  const surface = (cs.getPropertyValue('--surface') || '#161b22').trim();
+  const grid = (cs.getPropertyValue('--chart-grid') || '').trim() || 'rgba(255,255,255,0.06)';
+  return { text, muted, surface, grid };
+}
+
+function filterToCourseAndSemester(courseKey, sem) {
+  selectedCourses.clear();
+  selectedCourses.add(courseKey);
+  document.getElementById('subject-select').value = courseKey.split('|')[0];
+  semesterAllMode = false;
+  selectedSemesters.clear();
+  selectedSemesters.add(sem);
+  renderSelectedCourses();
+  renderSelectedSemesters();
+  render();
+}
+
+function initThemeToggle() {
+  const btn = document.getElementById('theme-toggle');
+  if (!btn) return;
+  const sync = () => {
+    const light = document.documentElement.getAttribute('data-theme') === 'light';
+    btn.setAttribute('aria-pressed', light ? 'true' : 'false');
+    btn.textContent = light ? 'Dark mode' : 'Light mode';
+    btn.title = light ? 'Switch to dark theme' : 'Switch to light theme';
+  };
+  sync();
+  btn.addEventListener('click', () => {
+    const light = document.documentElement.getAttribute('data-theme') === 'light';
+    if (light) {
+      document.documentElement.removeAttribute('data-theme');
+      try { localStorage.setItem('purdueGradesTheme', 'dark'); } catch (e) {}
+    } else {
+      document.documentElement.setAttribute('data-theme', 'light');
+      try { localStorage.setItem('purdueGradesTheme', 'light'); } catch (e) {}
+    }
+    sync();
+    if (RAW) render();
+  });
+}
+
+let mainSemFilterClicksBound = false;
+function setupMainSemesterFilterClicks() {
+  if (mainSemFilterClicksBound) return;
+  mainSemFilterClicksBound = true;
+  document.getElementById('main-content').addEventListener('click', (e) => {
+    const btn = e.target.closest('button.sem-filter-btn');
+    if (!btn) return;
+    const c = btn.getAttribute('data-course');
+    const s = btn.getAttribute('data-sem');
+    if (c == null || s == null) return;
+    e.preventDefault();
+    filterToCourseAndSemester(decodeURIComponent(c), decodeURIComponent(s));
+  });
+}
+
 let mobileFiltersBound = false;
 function setupMobileFilters() {
   if (mobileFiltersBound) return;
@@ -737,6 +873,7 @@ function init() {
   document.getElementById('course-input').addEventListener('focus', onCourseSearch);
   
   renderSelectedSemesters();
+  setupMainSemesterFilterClicks();
   setupMobileFilters();
   render();
 }
@@ -967,9 +1104,11 @@ function renderOverview(filtered, filters) {
   const uniqueSems = new Set(filtered.map(d => d.sem)).size;
   
   let sectionBlock = '';
-  if (filters.courses.length === 1) {
+  const uniqueCourseKeys = [...new Set(filtered.map(d => d.subj + '|' + d.course))];
+  if (uniqueCourseKeys.length === 1) {
+    const singleCourseKey = uniqueCourseKeys[0];
     const sorted = [...filtered].sort((a, b) => {
-      if (a.semIdx !== b.semIdx) return a.semIdx - b.semIdx;
+      if (a.semIdx !== b.semIdx) return b.semIdx - a.semIdx;
       return (a.instructor || '').localeCompare(b.instructor || '');
     });
     const hasAnyInstructor = sorted.some(d => d.instructor);
@@ -984,7 +1123,7 @@ function renderOverview(filtered, filters) {
       }).join('');
       const instCell = d.instructor ? escapeHtml(d.instructor) : '—';
       return `<tr>
-        <td class="mono">${escapeHtml(d.sem)}</td>
+        <td class="sem-cell"><button type="button" class="sem-link sem-filter-btn" data-course="${encodeURIComponent(singleCourseKey)}" data-sem="${encodeURIComponent(d.sem)}">${escapeHtml(d.sem)}</button></td>
         <td style="max-width:240px">${instCell}</td>
         <td class="mono" style="color:var(--accent)">${g || '—'}</td>
         <td class="mono" style="color:var(--green)">${pA}%</td>
@@ -1055,6 +1194,7 @@ function renderOverview(filtered, filters) {
           <tr>
             <th>Course</th>
             <th>Title</th>
+            <th>Latest sem</th>
             <th>Sections</th>
             <th>Est. GPA</th>
             <th>% A</th>
@@ -1073,6 +1213,7 @@ function renderOverview(filtered, filters) {
   const distData = distLabels.map(g => +(aggGrades[g]*100).toFixed(2));
   const distColors = distLabels.map(g => GRADE_COLORS[g] || '#555');
   
+  const ct = getChartTheme();
   const narrow = isNarrowViewport();
   charts.dist = new Chart(document.getElementById('dist-chart'), {
     type: 'bar',
@@ -1081,8 +1222,8 @@ function renderOverview(filtered, filters) {
       responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` ${ctx.raw.toFixed(1)}%` } } },
       scales: {
-        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', font: { family: 'IBM Plex Mono', size: narrow ? 9 : 11 }, maxRotation: narrow ? 70 : 0, minRotation: narrow ? 45 : 0 } },
-        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', callback: v => v+'%', font: { size: narrow ? 9 : 10 } } }
+        x: { grid: { color: ct.grid }, ticks: { color: ct.muted, font: { family: 'IBM Plex Mono', size: narrow ? 9 : 11 }, maxRotation: narrow ? 70 : 0, minRotation: narrow ? 45 : 0 } },
+        y: { grid: { color: ct.grid }, ticks: { color: ct.muted, callback: v => v+'%', font: { size: narrow ? 9 : 10 } } }
       }
     }
   });
@@ -1093,14 +1234,19 @@ function renderOverview(filtered, filters) {
   const bColors = bKeys.map(k => BUCKET_COLORS[k]);
   charts.bucket = new Chart(document.getElementById('bucket-chart'), {
     type: 'doughnut',
-    data: { labels: bKeys, datasets: [{ data: bData, backgroundColor: bColors, borderWidth: 2, borderColor: '#161b22' }] },
+    data: { labels: bKeys, datasets: [{ data: bData, backgroundColor: bColors, borderWidth: 2, borderColor: ct.surface }] },
     options: {
       responsive: true, maintainAspectRatio: false,
-      layout: { padding: narrow ? { bottom: 4 } : 0 },
+      layout: { padding: narrow ? { bottom: 8 } : { right: 4 } },
       plugins: {
         legend: {
           position: narrow ? 'bottom' : 'right',
-          labels: { color: '#e8dcc8', font: { family: 'IBM Plex Mono', size: narrow ? 9 : 11 }, padding: narrow ? 8 : 12, boxWidth: 10 }
+          labels: {
+            color: ct.text,
+            font: { family: 'IBM Plex Mono', size: narrow ? 12 : 13 },
+            padding: narrow ? 14 : 16,
+            boxWidth: 14
+          }
         },
         tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw.toFixed(1)}%` } }
       }
@@ -1114,7 +1260,12 @@ function renderOverview(filtered, filters) {
     if (!courseGroups[key]) courseGroups[key] = { subj: d.subj, course: d.course, title: d.title, records: [] };
     courseGroups[key].records.push(d);
   }
+  function maxSemIdx(records) {
+    return Math.max(...records.map(r => r.semIdx));
+  }
   const courseList = Object.values(courseGroups).sort((a, b) => {
+    const di = maxSemIdx(b.records) - maxSemIdx(a.records);
+    if (di !== 0) return di;
     const subCmp = a.subj.localeCompare(b.subj);
     if (subCmp !== 0) return subCmp;
     return catalogSortKey(a.course) - catalogSortKey(b.course);
@@ -1126,7 +1277,7 @@ function renderOverview(filtered, filters) {
   for (const c of courseList) {
     if (showSubjGroups && c.subj !== lastSubj) {
       lastSubj = c.subj;
-      parts.push(`<tr class="course-group-row"><td colspan="7" class="course-group-label">${escapeHtml(c.subj)}</td></tr>`);
+      parts.push(`<tr class="course-group-row"><td colspan="8" class="course-group-label">${escapeHtml(c.subj)}</td></tr>`);
     }
     const ag = aggregateGrades(c.records);
     const bk = getBuckets(ag);
@@ -1137,9 +1288,13 @@ function renderOverview(filtered, filters) {
       const pct = (bk[k]*100).toFixed(1);
       return pct > 0.5 ? `<div class="grade-seg" style="width:${pct}%;background:${BUCKET_COLORS[k]}"></div>` : '';
     }).join('');
+    const latestRec = c.records.reduce((best, r) => (r.semIdx > best.semIdx ? r : best), c.records[0]);
+    const latestSem = latestRec.sem;
+    const courseKey = c.subj + '|' + c.course;
     parts.push(`<tr>
       <td class="mono">${c.subj} ${c.course}</td>
       <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(c.title)}">${escapeHtml(c.title)}</td>
+      <td class="sem-cell"><button type="button" class="sem-link sem-filter-btn" data-course="${encodeURIComponent(courseKey)}" data-sem="${encodeURIComponent(latestSem)}">${escapeHtml(latestSem)}</button></td>
       <td class="mono">${c.records.length}</td>
       <td class="mono" style="color:var(--accent)">${g || '—'}</td>
       <td class="mono" style="color:var(--green)">${pA}%</td>
@@ -1208,12 +1363,13 @@ function renderTrend(filtered, filters) {
   `;
   
   const trendNarrow = isNarrowViewport();
+  const ctTrend = getChartTheme();
   const commonOptions = {
     responsive: true, maintainAspectRatio: false,
     plugins: { legend: { display: false }, tooltip: {} },
     scales: {
-      x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', font: { family: 'IBM Plex Mono', size: trendNarrow ? 8 : 10 }, maxRotation: trendNarrow ? 70 : 45, minRotation: trendNarrow ? 50 : 0 } },
-      y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', font: { size: trendNarrow ? 9 : 10 } } }
+      x: { grid: { color: ctTrend.grid }, ticks: { color: ctTrend.muted, font: { family: 'IBM Plex Mono', size: trendNarrow ? 8 : 10 }, maxRotation: trendNarrow ? 70 : 45, minRotation: trendNarrow ? 50 : 0 } },
+      y: { grid: { color: ctTrend.grid }, ticks: { color: ctTrend.muted, font: { size: trendNarrow ? 9 : 10 } } }
     }
   };
   
@@ -1271,13 +1427,13 @@ function renderTrend(filtered, filters) {
       plugins: {
         legend: {
           position: trendNarrow ? 'bottom' : 'top',
-          labels: { color: '#e8dcc8', font: { family: 'IBM Plex Mono', size: trendNarrow ? 9 : 11 }, boxWidth: 10, padding: trendNarrow ? 6 : 10 }
+          labels: { color: ctTrend.text, font: { family: 'IBM Plex Mono', size: trendNarrow ? 9 : 11 }, boxWidth: 10, padding: trendNarrow ? 6 : 10 }
         },
         tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.raw.toFixed(1)}%` } }
       },
       scales: {
-        x: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', font: { family: 'IBM Plex Mono', size: trendNarrow ? 8 : 10 }, maxRotation: trendNarrow ? 70 : 45 } },
-        y: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', callback: v => v+'%', font: { size: trendNarrow ? 9 : 10 } }, max: 100 }
+        x: { stacked: true, grid: { color: ctTrend.grid }, ticks: { color: ctTrend.muted, font: { family: 'IBM Plex Mono', size: trendNarrow ? 8 : 10 }, maxRotation: trendNarrow ? 70 : 45 } },
+        y: { stacked: true, grid: { color: ctTrend.grid }, ticks: { color: ctTrend.muted, callback: v => v+'%', font: { size: trendNarrow ? 9 : 10 } }, max: 100 }
       }
     }
   });
@@ -1332,6 +1488,7 @@ function renderCompare(filtered, filters) {
   }));
   
   const cmpNarrow = isNarrowViewport();
+  const ctCmp = getChartTheme();
   charts.compare = new Chart(document.getElementById('compare-chart'), {
     type: 'bar',
     data: { labels: courseLabels, datasets },
@@ -1341,13 +1498,13 @@ function renderCompare(filtered, filters) {
       plugins: {
         legend: {
           position: cmpNarrow ? 'bottom' : 'top',
-          labels: { color: '#e8dcc8', font: { family: 'IBM Plex Mono', size: cmpNarrow ? 8 : 10 }, boxWidth: 8, padding: cmpNarrow ? 4 : 8 }
+          labels: { color: ctCmp.text, font: { family: 'IBM Plex Mono', size: cmpNarrow ? 8 : 10 }, boxWidth: 8, padding: cmpNarrow ? 4 : 8 }
         },
         tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.raw.toFixed(1)}%` } }
       },
       scales: {
-        x: { stacked: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', callback: v => v+'%', font: { size: cmpNarrow ? 8 : 10 } }, max: 100 },
-        y: { stacked: true, grid: { display: false }, ticks: { color: '#e8dcc8', font: { family: 'IBM Plex Mono', size: cmpNarrow ? 9 : 11 }, maxRotation: 0 } }
+        x: { stacked: true, grid: { color: ctCmp.grid }, ticks: { color: ctCmp.muted, callback: v => v+'%', font: { size: cmpNarrow ? 8 : 10 } }, max: 100 },
+        y: { stacked: true, grid: { display: false }, ticks: { color: ctCmp.text, font: { family: 'IBM Plex Mono', size: cmpNarrow ? 9 : 11 }, maxRotation: 0 } }
       }
     }
   });
@@ -1365,8 +1522,8 @@ function renderCompare(filtered, filters) {
       responsive: true, maintainAspectRatio: false, indexAxis: 'y',
       plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ` Est. GPA: ${ctx.raw.toFixed(2)}` } } },
       scales: {
-        x: { min: 0, max: 4, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#7a8a9a', font: { size: cmpNarrow ? 9 : 10 }, callback: v => v.toFixed(1) } },
-        y: { grid: { display: false }, ticks: { color: '#e8dcc8', font: { family: 'IBM Plex Mono', size: cmpNarrow ? 9 : 11 } } }
+        x: { min: 0, max: 4, grid: { color: ctCmp.grid }, ticks: { color: ctCmp.muted, font: { size: cmpNarrow ? 9 : 10 }, callback: v => v.toFixed(1) } },
+        y: { grid: { display: false }, ticks: { color: ctCmp.text, font: { family: 'IBM Plex Mono', size: cmpNarrow ? 9 : 11 } } }
       }
     }
   });
@@ -1427,7 +1584,10 @@ async function loadGradeData() {
   });
 }
 
-document.addEventListener('DOMContentLoaded', loadGradeData);
+document.addEventListener('DOMContentLoaded', () => {
+  initThemeToggle();
+  loadGradeData();
+});
 </script>
 </body>
 </html>
