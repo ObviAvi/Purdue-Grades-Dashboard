@@ -74,6 +74,7 @@
   .empty-state,
   .filter-toggle-mobile,
   .course-result-item,
+  .instructor-result-item,
   .divider,
   .sem-link {
     transition-property: background-color, color, border-color, fill, stroke;
@@ -105,6 +106,7 @@
     .empty-state,
     .filter-toggle-mobile,
     .course-result-item,
+    .instructor-result-item,
     .divider,
     .sem-link {
       transition: none !important;
@@ -233,7 +235,7 @@
   }
   
   .course-search-wrap { position: relative; }
-  #course-results {
+  #course-results, #instructor-results {
     position: absolute;
     top: 100%;
     left: 0; right: 0;
@@ -246,20 +248,25 @@
     z-index: 100;
     display: none;
   }
-  .course-result-item {
+  .course-result-item, .instructor-result-item {
     padding: 8px 10px;
     cursor: pointer;
     border-bottom: 1px solid var(--border);
     transition: background 0.1s;
   }
-  .course-result-item:last-child { border-bottom: none; }
-  .course-result-item:hover { background: var(--border); }
+  .course-result-item:last-child, .instructor-result-item:last-child { border-bottom: none; }
+  .course-result-item:hover, .instructor-result-item:hover { background: var(--border); }
   .course-result-item .code {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
     color: var(--accent);
   }
   .course-result-item .name { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .instructor-result-item .inst-name {
+    font-size: 12px;
+    color: var(--text);
+  }
+  .instructor-result-item .inst-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
   
   .selected-tag {
     display: inline-flex;
@@ -686,7 +693,7 @@
       padding: 10px 12px;
     }
     .mode-row { gap: 6px; }
-    #course-results { max-height: min(40vh, 280px); }
+    #course-results, #instructor-results { max-height: min(40vh, 280px); }
     .table-scroll table { min-width: 600px; }
   }
 
@@ -746,6 +753,15 @@
       <button type="button" class="btn btn-sem-all" id="semester-all-btn" onclick="setSemesterAll()">All</button>
     </div>
     <div id="selected-semesters" style="margin-top:8px"></div>
+  </div>
+
+  <div class="filter-group">
+    <label>Instructor</label>
+    <div class="course-search-wrap">
+      <input type="text" id="instructor-input" placeholder="Search by instructor name…" autocomplete="off">
+      <div id="instructor-results"></div>
+    </div>
+    <div id="selected-instructors" style="margin-top:8px"></div>
   </div>
 
   <div class="filter-group">
@@ -810,6 +826,8 @@ const BUCKET_COLORS = {'A':'#4caf72','B':'#4c9ac9','C':'#c9a84c','D':'#c97a4c','
 let selectedCourses = new Set(); // "SUBJ|courseNum" strings
 let selectedSemesters = new Set();
 let semesterAllMode = true; // when true, no semester filter (same as all semesters)
+let selectedInstructors = new Set();
+let instructorAllMode = true; // when true, no instructor filter
 let currentMode = 'overview';
 let charts = {};
 
@@ -874,13 +892,22 @@ function setupMainSemesterFilterClicks() {
   if (mainSemFilterClicksBound) return;
   mainSemFilterClicksBound = true;
   document.getElementById('main-content').addEventListener('click', (e) => {
-    const btn = e.target.closest('button.sem-filter-btn');
-    if (!btn) return;
-    const c = btn.getAttribute('data-course');
-    const s = btn.getAttribute('data-sem');
-    if (c == null || s == null) return;
-    e.preventDefault();
-    filterToCourseAndSemester(decodeURIComponent(c), decodeURIComponent(s));
+    const semBtn = e.target.closest('button.sem-filter-btn');
+    if (semBtn) {
+      const c = semBtn.getAttribute('data-course');
+      const s = semBtn.getAttribute('data-sem');
+      if (c == null || s == null) return;
+      e.preventDefault();
+      filterToCourseAndSemester(decodeURIComponent(c), decodeURIComponent(s));
+      return;
+    }
+    const instBtn = e.target.closest('button.inst-filter-btn');
+    if (instBtn) {
+      const name = instBtn.getAttribute('data-instructor');
+      if (name == null) return;
+      e.preventDefault();
+      selectInstructor(decodeURIComponent(name));
+    }
   });
 }
 
@@ -941,7 +968,13 @@ function init() {
     setTimeout(() => document.getElementById('course-results').style.display = 'none', 200);
   });
   document.getElementById('course-input').addEventListener('focus', onCourseSearch);
-  
+
+  document.getElementById('instructor-input').addEventListener('input', onInstructorSearch);
+  document.getElementById('instructor-input').addEventListener('focus', onInstructorSearch);
+  document.getElementById('instructor-input').addEventListener('blur', () => {
+    setTimeout(() => document.getElementById('instructor-results').style.display = 'none', 200);
+  });
+
   renderSelectedSemesters();
   setupMainSemesterFilterClicks();
   setupMobileFilters();
@@ -960,7 +993,8 @@ function updateCourseDropdown() {
 function getFilters() {
   const subj = document.getElementById('subject-select').value;
   const sems = semesterAllMode ? [] : [...selectedSemesters];
-  return { subj, sems, courses: [...selectedCourses] };
+  const instructors = instructorAllMode ? [] : [...selectedInstructors];
+  return { subj, sems, courses: [...selectedCourses], instructors };
 }
 
 function filterData(filters) {
@@ -968,6 +1002,7 @@ function filterData(filters) {
     if (filters.subj && d.subj !== filters.subj) return false;
     if (filters.sems.length > 0 && !filters.sems.includes(d.sem)) return false;
     if (filters.courses.length && !filters.courses.includes(d.subj+'|'+d.course)) return false;
+    if (filters.instructors.length > 0 && !filters.instructors.includes(d.instructor)) return false;
     return true;
   });
 }
@@ -1031,6 +1066,63 @@ function renderSelectedCourses() {
   }).join('');
 }
 
+// ──────────────────────────────────────────────────────────────────
+// INSTRUCTOR SEARCH
+// ──────────────────────────────────────────────────────────────────
+function onInstructorSearch() {
+  const q = document.getElementById('instructor-input').value.toLowerCase().trim();
+  const subj = document.getElementById('subject-select').value;
+  const sems = semesterAllMode ? [] : [...selectedSemesters];
+  const resultsEl = document.getElementById('instructor-results');
+
+  if (!q) { resultsEl.style.display = 'none'; return; }
+
+  // Build unique instructors from data visible under current subject/semester context
+  const seen = new Set();
+  const matches = [];
+  for (const d of DATA) {
+    if (!d.instructor) continue;
+    if (selectedInstructors.has(d.instructor)) continue;
+    if (subj && d.subj !== subj) continue;
+    if (sems.length > 0 && !sems.includes(d.sem)) continue;
+    if (seen.has(d.instructor)) continue;
+    if (!d.instructor.toLowerCase().includes(q)) continue;
+    seen.add(d.instructor);
+    matches.push(d.instructor);
+    if (matches.length >= 40) break;
+  }
+
+  resultsEl.innerHTML = matches.map(name => {
+    const safe = escapeHtml(name);
+    return `<div class="instructor-result-item" onmousedown='selectInstructor(${JSON.stringify(name)})'>`
+      + `<div class="inst-name">${safe}</div></div>`;
+  }).join('');
+  resultsEl.style.display = matches.length ? 'block' : 'none';
+}
+
+function selectInstructor(name) {
+  selectedInstructors.add(name);
+  instructorAllMode = false;
+  document.getElementById('instructor-input').value = '';
+  document.getElementById('instructor-results').style.display = 'none';
+  renderSelectedInstructors();
+  render();
+}
+
+function removeInstructor(name) {
+  selectedInstructors.delete(name);
+  if (!selectedInstructors.size) instructorAllMode = true;
+  renderSelectedInstructors();
+  render();
+}
+
+function renderSelectedInstructors() {
+  const el = document.getElementById('selected-instructors');
+  el.innerHTML = [...selectedInstructors].sort().map(name =>
+    `<span class="selected-tag">${escapeHtml(name)}<button type="button" onclick='removeInstructor(${JSON.stringify(name)})'>×</button></span>`
+  ).join('');
+}
+
 function onSemesterAddPick(e) {
   const v = e.target.value;
   if (!v) return;
@@ -1076,6 +1168,11 @@ function clearFilters() {
   semesterAllMode = true;
   selectedSemesters.clear();
   renderSelectedSemesters();
+  instructorAllMode = true;
+  selectedInstructors.clear();
+  document.getElementById('instructor-input').value = '';
+  document.getElementById('instructor-results').style.display = 'none';
+  renderSelectedInstructors();
   render();
 }
 
@@ -1191,7 +1288,9 @@ function renderOverview(filtered, filters) {
         const pct = (bk[k]*100).toFixed(1);
         return pct > 0.5 ? `<div class="grade-seg" style="width:${pct}%;background:${BUCKET_COLORS[k]}"></div>` : '';
       }).join('');
-      const instCell = d.instructor ? escapeHtml(d.instructor) : '—';
+      const instCell = d.instructor
+        ? `<button type="button" class="sem-link inst-filter-btn" data-instructor="${encodeURIComponent(d.instructor)}">${escapeHtml(d.instructor)}</button>`
+        : '—';
       return `<tr>
         <td class="sem-cell"><button type="button" class="sem-link sem-filter-btn" data-course="${encodeURIComponent(singleCourseKey)}" data-sem="${encodeURIComponent(d.sem)}">${escapeHtml(d.sem)}</button></td>
         <td style="max-width:240px">${instCell}</td>
