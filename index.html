@@ -113,6 +113,12 @@
     }
   }
 
+  /* Suppress table-cell transitions during theme switch so only the UI chrome animates */
+  html.theme-switching tbody td,
+  html.theme-switching tbody tr.course-group-row td {
+    transition: none !important;
+  }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     background: var(--bg);
@@ -830,6 +836,8 @@ let selectedInstructors = new Set();
 let instructorAllMode = true; // when true, no instructor filter
 let currentMode = 'overview';
 let charts = {};
+// Incremented on every render(); progressive table batches check this to self-cancel if stale
+let renderGen = 0;
 
 function isNarrowViewport() {
   return typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 900px)').matches;
@@ -869,6 +877,8 @@ function initThemeToggle() {
   sync();
   btn.addEventListener('click', () => {
     const light = document.documentElement.getAttribute('data-theme') === 'light';
+    // Freeze table-cell transitions so only the UI chrome cross-fades
+    document.documentElement.classList.add('theme-switching');
     if (light) {
       document.documentElement.removeAttribute('data-theme');
       try { localStorage.setItem('purdueGradesTheme', 'dark'); } catch (e) {}
@@ -881,7 +891,15 @@ function initThemeToggle() {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           if (RAW) render();
+          // Re-enable table transitions after the first painted frame
+          requestAnimationFrame(() => {
+            document.documentElement.classList.remove('theme-switching');
+          });
         });
+      });
+    } else {
+      requestAnimationFrame(() => {
+        document.documentElement.classList.remove('theme-switching');
       });
     }
   });
@@ -1243,6 +1261,7 @@ function destroyCharts() {
 }
 
 function render() {
+  renderGen++;
   destroyCharts();
   const filters = getFilters();
   const filtered = filterData(filters);
@@ -1441,7 +1460,6 @@ function renderOverview(filtered, filters) {
   });
   const showSubjGroups = !filters.subj;
   let lastSubj = null;
-  const tbody = document.getElementById('course-table-body');
   const parts = [];
   for (const c of courseList) {
     if (showSubjGroups && c.subj !== lastSubj) {
@@ -1471,7 +1489,43 @@ function renderOverview(filtered, filters) {
       <td><div class="grade-bar">${barSegs}</div></td>
     </tr>`);
   }
-  tbody.innerHTML = parts.join('');
+
+  // Progressive rendering: paint the first visible rows immediately, then
+  // stream the remainder in idle-time batches so the UI stays responsive.
+  const FIRST_BATCH = 30;
+  const BATCH_SIZE  = 60;
+  const tbody = document.getElementById('course-table-body');
+  const myGen = renderGen;
+
+  tbody.innerHTML = parts.slice(0, FIRST_BATCH).join('');
+
+  if (parts.length > FIRST_BATCH) {
+    let idx = FIRST_BATCH;
+    const appendBatch = () => {
+      if (renderGen !== myGen) return; // a newer render() has started; bail out
+      const tbody2 = document.getElementById('course-table-body');
+      if (!tbody2) return;
+      const chunk = parts.slice(idx, idx + BATCH_SIZE).join('');
+      const tmp = document.createElement('tbody');
+      tmp.innerHTML = chunk;
+      const frag = document.createDocumentFragment();
+      while (tmp.firstChild) frag.appendChild(tmp.firstChild);
+      tbody2.appendChild(frag);
+      idx += BATCH_SIZE;
+      if (idx < parts.length) {
+        if (typeof requestIdleCallback === 'function') {
+          requestIdleCallback(appendBatch, { timeout: 150 });
+        } else {
+          setTimeout(appendBatch, 0);
+        }
+      }
+    };
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(appendBatch, { timeout: 150 });
+    } else {
+      setTimeout(appendBatch, 0);
+    }
+  }
 }
 
 function renderTrend(filtered, filters) {
